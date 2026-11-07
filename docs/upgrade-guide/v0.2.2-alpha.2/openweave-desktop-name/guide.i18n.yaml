@@ -1,0 +1,16 @@
+# Bilingual-pair consistency record for guide.md (docs/i18n/README.md): per heading
+# section, a hash of its English and Chinese blocks outside code blocks and generated regions.
+# After editing either side, bring the other along and re-record with:
+#   pnpm run verify-translation-pairing --write docs/upgrade-guide/v0.2.2-alpha.2/openweave-desktop-name/guide.md
+/:
+  en: 3e6a2a2ad25cee2c
+  zh: 53a421fcffca4eaa
+/openweave-desktop-name:
+  en: 9d420d979279c043
+  zh: aee7e3fd398262c6
+/openweave-desktop-name/change:
+  en: a74e0cad00898315
+  zh: fa3c8d5a2f6920f8
+/openweave-desktop-name/migration:
+  en: 664811708a800b74
+  zh: 37396294f72192af

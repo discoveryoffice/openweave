@@ -1,8 +1,8 @@
-# DeepSeek Harness
+# OpenWeave · 共织
 
 [English](README.md) | 中文
 
-DeepSeek Harness（`dsh`）是由 [DeepSeek AI](https://deepseek.com) 开发的开源 agent harness（智能体框架）。
+OpenWeave（共织）是面向多模型与多 Agent 协作的开源工作区，基于 [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness) 构建，上游由 [DeepSeek AI](https://deepseek.com) 开发。源码构建采用 OpenWeave 品牌，并保留上游包名与 `dsh` 命令的兼容性。
 
 它构建于**一切皆插件**的架构之上，由 [Cordis](https://github.com/cordiverse/cordis) 驱动，其设计参见论文 [_A Programming Paradigm for Spatiotemporal Composability_](https://arxiv.org/abs/2608.25512)。
 
@@ -10,7 +10,7 @@ DeepSeek Harness（`dsh`）是由 [DeepSeek AI](https://deepseek.com) 开发的�
 
 ## 开发者预览
 
-DeepSeek Harness 处于 _开发者预览_ 阶段，正在快速迭代。**未来将出现破坏兼容性的变更。**
+OpenWeave 处于 _开发者预览_ 阶段，正在快速迭代。**未来将出现破坏兼容性的变更。**
 
 运行本项目前，请阅读[安全说明](SAFETY.zh.md)。
 

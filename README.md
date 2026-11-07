@@ -4,7 +4,9 @@ English | [中文](README.zh.md)
 
 OpenWeave (共织) is an open-source workspace for collaboration between models and agents, built on [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness) by [DeepSeek AI](https://deepseek.com). The source build uses OpenWeave branding; upstream package names and the `dsh` command remain compatible.
 
-It is built on an **everything-is-a-plugin** architecture and powered by [Cordis](https://github.com/cordiverse/cordis), whose design is described in [_A Programming Paradigm for Spatiotemporal Composability_](https://arxiv.org/abs/2608.25512).
+Everything is a plugin: the model adapter, tool registry, session log and even the agent loop mount on one [Cordis](https://github.com/cordiverse/cordis) context, so each can be replaced from configuration without patching a privileged core. Registrations are effects that unwind when a plugin unloads; the design is described in [_A Programming Paradigm for Spatiotemporal Composability_](https://arxiv.org/abs/2608.25512).
+
+A run is an ordered stack of bundles and patch overlays — `web`, `headless`, `sdk`, `sdk-minimal` and `acp` — so one runtime serves the Web UI, the Electron desktop app, one-shot runs and JSON-RPC clients. Sessions are append-only event logs: every input that reaches a model is reconstructable from the log, which keeps runs replayable and inspectable.
 
 Documentation: [https://deepseek-harness.github.io/deepseek-harness/](https://deepseek-harness.github.io/deepseek-harness/)
 

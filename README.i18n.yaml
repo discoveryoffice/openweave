@@ -3,8 +3,8 @@
 # After editing either side, bring the other along and re-record with:
 #   pnpm run verify-translation-pairing --write README.md
 /openweave:
-  en: cfd020f31587e37f
-  zh: 45e42a766522bcbe
+  en: 55b5c84179ac4ba0
+  zh: 6028365e1ffaee0f
 /openweave/developer-preview:
   en: 5b570643d323996b
   zh: 01f4692470393094

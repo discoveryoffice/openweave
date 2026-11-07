@@ -4,7 +4,9 @@
 
 OpenWeave（共织）是面向多模型与多 Agent 协作的开源工作区，基于 [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness) 构建，上游由 [DeepSeek AI](https://deepseek.com) 开发。源码构建采用 OpenWeave 品牌，并保留上游包名与 `dsh` 命令的兼容性。
 
-它构建于**一切皆插件**的架构之上，由 [Cordis](https://github.com/cordiverse/cordis) 驱动，其设计参见论文 [_A Programming Paradigm for Spatiotemporal Composability_](https://arxiv.org/abs/2608.25512)。
+一切皆插件：模型适配器、工具注册表、会话日志，乃至 agent loop 本身，都挂载在同一个 [Cordis](https://github.com/cordiverse/cordis) 上下文上，任何一个都能通过配置替换，无需修改特权内核。注册即 effect，插件卸载时自动回滚；其设计参见论文 [_A Programming Paradigm for Spatiotemporal Composability_](https://arxiv.org/abs/2608.25512)。
+
+一次运行由按顺序叠加的 bundle 与 patch 组成（`web`、`headless`、`sdk`、`sdk-minimal`、`acp`），因此同一套运行时既能支撑 Web UI 与 Electron 桌面端，也能支撑一次性运行和 JSON-RPC 客户端。会话是只追加的事件日志：凡是送达模型的输入都能从日志重建，运行过程可回放、可检查。
 
 文档：[https://deepseek-harness.github.io/deepseek-harness/](https://deepseek-harness.github.io/deepseek-harness/)
 

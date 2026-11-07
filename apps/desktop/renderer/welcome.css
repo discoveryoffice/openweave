@@ -7,8 +7,8 @@ body {
   --dsw-alias-label-secondary: #61666b;
   --dsw-alias-label-tertiary: #81858c;
   --dsw-alias-label-primary-inverted: #fff;
-  --dsw-alias-brand-primary: var(--dsw-alias-label-primary);
-  --dsw-alias-button-primary-hover: #43454a;
+  --dsw-alias-brand-primary: #0f766e;
+  --dsw-alias-button-primary-hover: #115e59;
   --dsw-alias-button-elevated-fill: #fff;
   --dsw-alias-button-floating-hover: #f1f3f5;
   --dsw-alias-border-l2: #0000001a;
@@ -27,8 +27,9 @@ body {
     --dsw-alias-label-primary: #f9fafb;
     --dsw-alias-label-secondary: #cfd3d6;
     --dsw-alias-label-tertiary: #adb2b8;
-    --dsw-alias-label-primary-inverted: #353638;
-    --dsw-alias-button-primary-hover: #ebeef2;
+    --dsw-alias-label-primary-inverted: #102d29;
+    --dsw-alias-brand-primary: #5eead4;
+    --dsw-alias-button-primary-hover: #99f6e4;
     --dsw-alias-button-elevated-fill: #43454a;
     --dsw-alias-button-floating-hover: #353638;
     --dsw-alias-border-l2: #ffffff1f;

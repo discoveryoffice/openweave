@@ -4,14 +4,14 @@
  *
  * A browser installs a Web App only with a raster 192px and a 512px icon, masks
  * the icon it puts on the home screen, and has no manifest support for iOS,
- * which reads `apple-touch-icon` instead. The whale favicon is the bare mark
- * drawn edge to edge: handed to a launcher directly it loses its fins to the
+ * which reads `apple-touch-icon` instead. The ribbon mark favicon is the bare mark
+ * drawn edge to edge: handed to a launcher directly it loses its ends to the
  * mask, and it carries neither the tile nor a background of its own. This
  * script rasterizes the official application tile (`apps/desktop/resources/icon.svg`,
  * the artwork the desktop application ships) into the committed PNGs under
  * `public/`. Every variant crops the tile's drop shadow, which belongs to a
  * desktop window rather than a launcher; the maskable variant additionally
- * scales the whale inside the safe zone a platform mask may crop, leaving the
+ * scales the ribbon mark inside the safe zone a platform mask may crop, leaving the
  * tile's own gradient to fill the icon so no mask meets a seam.
  *
  * The committed PNGs are the output; rerun
@@ -47,10 +47,9 @@ const SOURCE_DENSITY = 72
 const RENDER_SCALE = 4
 
 /**
- * Fraction of a maskable icon the artwork keeps: the platform may crop the
- * border outside it. The tile's own ink reaches 0.461 of its edge from the
- * centre, so 0.868 is the largest scale a circular mask still shows whole;
- * `pwa-manifest.e2e.ts` checks the committed artwork against that circle.
+ * Fraction of a maskable icon the artwork keeps. The platform may crop the
+ * surrounding band; `pwa-manifest.e2e.ts` checks that all ribbon ink remains
+ * inside the guaranteed safe circle.
  */
 export const MASKABLE_ARTWORK_SCALE = 0.82
 
@@ -61,10 +60,10 @@ export const MASKABLE_SAFE_RADIUS_RATIO = 0.4
 const SOURCE_ROOT = /^<svg[^>]*>/u
 
 /** The tile group's drop shadow; stripped because a launcher icon has no window around it. */
-const TILE_SHADOW_GROUP = '<g filter="url(#filter0_d_1637_371)">'
+const TILE_SHADOW_GROUP = '<g filter="url(#tile-shadow)">'
 
-/** The whale group inside the tile; the only element a maskable icon scales. */
-const TILE_ARTWORK_GROUP = '<g filter="url(#filter1_ddi_1637_371)">'
+/** The ribbon mark group inside the tile; the only element a maskable icon scales. */
+const TILE_ARTWORK_GROUP = '<g id="app-mark">'
 
 /** One committed install icon: the manifest or link member it serves and its edge in pixels. */
 export interface AppIconVariant {
@@ -108,7 +107,10 @@ function reparent(source: string): string {
   if (root === null) throw new Error('app icons: the tile source has no root element')
   if (!trimmed.includes(TILE_SHADOW_GROUP)) throw new Error('app icons: the tile source has no shadowed tile group')
   if (!trimmed.includes(TILE_ARTWORK_GROUP)) throw new Error('app icons: the tile source has no artwork group')
-  return `${croppedRoot()}${trimmed.slice(root[0].length).replace(TILE_SHADOW_GROUP, '<g>')}`
+  if (!trimmed.includes('<rect id="app-tile"')) throw new Error('app icons: the tile source has no background rectangle')
+  const tile = trimmed.slice(root[0].length).replace(TILE_SHADOW_GROUP, '<g>')
+    .replace(/(<rect id="app-tile"[^>]*?) rx="[^"]*"/u, '$1')
+  return `${croppedRoot()}${tile}`
 }
 
 /**
@@ -123,7 +125,7 @@ export function tileDocument(source: string): string {
 /**
  * Rewrite the tile source into a maskable icon. The tile keeps its own gradient
  * and extent, so the icon's border is the real tile rather than an extension;
- * only the whale scales into the safe zone a platform mask may crop.
+ * only the ribbon mark scales into the safe zone a platform mask may crop.
  * @param source - complete `icon.svg` document.
  * @returns an SVG document whose artwork survives a circular mask whole.
  */

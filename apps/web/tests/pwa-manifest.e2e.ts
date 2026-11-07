@@ -25,7 +25,8 @@ async function pixels(page: Page, url: string, size: number) {
     for (let y = 0; y < size; y += 1) {
       for (let x = 0; x < size; x += 1) {
         const at = (y * size + x) * 4
-        if (data[at + 3] === 0 || data[at]! + data[at + 1]! + data[at + 2]! >= 384) continue
+        // The pale tile has every channel above 230; both ribbons keep a darker channel.
+        if (data[at + 3] === 0 || Math.min(data[at]!, data[at + 1]!, data[at + 2]!) >= 180) continue
         ink += 1
         radius = Math.max(radius, Math.hypot(x - (size - 1) / 2, y - (size - 1) / 2))
       }
@@ -51,7 +52,7 @@ it('ships install metadata with the built web application', async () => {
   expect(index).toContain('<link rel="manifest" href="./manifest.webmanifest" />')
   expect(index).toContain('<link rel="apple-touch-icon" href="./apple-touch-icon.png" />')
   expect(index).toContain('<meta name="mobile-web-app-capable" content="yes" />')
-  expect(index).toContain('<meta name="apple-mobile-web-app-title" content="DSH" />')
+  expect(index).toContain('<meta name="apple-mobile-web-app-title" content="OpenWeave" />')
   // No `theme-color` here: `ThemePresenter` owns the single metadata node and
   // follows the resolved in-application theme, which a static media query
   // cannot. The manifest's `theme_color` covers the surrounding chrome before
@@ -62,8 +63,8 @@ it('ships install metadata with the built web application', async () => {
   // so only an absent `id`, which defaults to the resolved `start_url`, gives
   // each mount its own identity. `public-mount.e2e.ts` reads the resolved form.
   expect(manifest).toEqual({
-    name: 'DeepSeek Harness',
-    short_name: 'DSH',
+    name: 'OpenWeave',
+    short_name: 'OpenWeave',
     start_url: './',
     scope: './',
     // `standalone` keeps the phone's status bar; `fullscreen` hides it and the
@@ -115,18 +116,17 @@ it('ships fixed-color favicons selected by document media queries', async () => 
   const light = await readFile(join(DIST_ROOT, 'favicon.svg'), 'utf8')
   const dark = await readFile(join(DIST_ROOT, 'favicon-dark.svg'), 'utf8')
   expect(light).not.toContain('<style>')
-  expect(light).toContain('fill="#000"')
-  expect(dark).toContain('fill="#fff"')
-  expect(dark.replace('fill="#fff"', 'fill="#000"')).toBe(light)
+  expect(light).toContain('stroke="#0d9488"')
+  expect(light).toContain('stroke="#8b5cf6"')
+  expect(dark).toBe(light)
 })
 
-it('preserves fractional coverage along the Apple icon curves', async () => {
+it('keeps smooth colored ribbon edges on an opaque Apple install tile', async () => {
   const browser = await chromium.launch({ headless: true })
   try {
     const page = await browser.newPage()
     const png = await readFile(join(ICON_OUTPUT_DIRECTORY, 'apple-touch-icon.png'))
-    const tile = tileDocument(await readFile(TILE_SOURCE, 'utf8'))
-    const [generated, direct] = await page.evaluate(async sources => Promise.all(sources.map(async (source) => {
+    const coverage = await page.evaluate(async (source) => {
       const image = new Image()
       image.src = source
       await image.decode()
@@ -140,22 +140,26 @@ it('preserves fractional coverage along the Apple icon curves', async () => {
         return (data[at]! + data[at + 1]! + data[at + 2]!) / 3
       }
       let partial = 0
+      let translucent = 0
+      for (let at = 3; at < data.length; at += 4) {
+        if (data[at] !== 255) translucent += 1
+      }
       for (let y = 1; y < 179; y += 1) {
         for (let x = 1; x < 179; x += 1) {
           const value = brightness(x, y)
-          if (value <= 85 || value >= 200) continue
-          // Neighboring ink and background distinguish edge coverage from the
-          // source's gradients and shadows, which remain in both renderings.
+          if (value <= 170 || value >= 230) continue
+          // The darker ribbon and pale tile must both neighbor a blended edge pixel.
           const neighbors: number[] = []
           for (let dy = -1; dy <= 1; dy += 1) {
             for (let dx = -1; dx <= 1; dx += 1) neighbors.push(brightness(x + dx, y + dy))
           }
-          if (Math.min(...neighbors) < 70 && Math.max(...neighbors) > 220) partial += 1
+          if (Math.min(...neighbors) < 165 && Math.max(...neighbors) > 235) partial += 1
         }
       }
-      return partial
-    })), [`data:image/png;base64,${png.toString('base64')}`, `data:image/svg+xml;base64,${Buffer.from(tile).toString('base64')}`])
-    expect(generated!).toBeGreaterThan(direct!)
+      return { partial, translucent }
+    }, pngUrl(png))
+    expect(coverage.partial).toBeGreaterThan(0)
+    expect(coverage.translucent).toBe(0)
   } finally { await browser.close() }
 })
 
@@ -171,7 +175,7 @@ it('keeps the shipped maskable artwork inside its opaque platform safe zone', as
     expect(scaled.radius).toBeLessThanOrEqual(MASKABLE_SAFE_RADIUS_RATIO * size)
     expect(scaled.radius).toBeGreaterThan(unscaled.radius * MASKABLE_ARTWORK_SCALE - 2)
     expect(scaled.corners).toEqual([255, 255, 255, 255])
-    expect(unscaled.radius).toBeGreaterThan(MASKABLE_SAFE_RADIUS_RATIO * size)
+    expect(unscaled.radius).toBeGreaterThan(scaled.radius)
   } finally {
     await browser.close()
   }

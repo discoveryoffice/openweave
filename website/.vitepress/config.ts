@@ -177,7 +177,7 @@ const base = process.env.DOCS_BASE ?? '/'
 /** Site identity shared by the VitePress configuration and the llms.txt index. */
 const siteIdentity = {
   title: 'OpenWeave',
-  description: '用于构建 Agent Harness 的插件化 SDK',
+  description: 'OpenWeave（共织）：一切皆插件的多模型与多 Agent 协作工作区，模型适配器、工具、会话与 agent loop 均可按配置替换',
 }
 
 /**

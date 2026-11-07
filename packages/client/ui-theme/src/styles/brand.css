@@ -1,0 +1,16 @@
+/* OpenWeave accents; semantic status colors keep their established meanings. */
+body {
+  --dsw-alias-brand-primary: #0f766e;
+  --dsw-alias-button-primary-hover: #115e59;
+  --dsw-alias-button-info-hover: #115e59;
+  --dsw-alias-label-primary-bluish: #5b21b6;
+  --dsw-alias-state-business-tertiary: #f3efff;
+}
+
+body[data-ds-dark-theme] {
+  --dsw-alias-brand-primary: #5eead4;
+  --dsw-alias-button-primary-hover: #99f6e4;
+  --dsw-alias-button-info-hover: #99f6e4;
+  --dsw-alias-label-primary-bluish: #c4b5fd;
+  --dsw-alias-state-business-tertiary: #302545;
+}

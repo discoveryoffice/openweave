@@ -104,6 +104,74 @@ async function serviceBench() {
   return { root, inputTriggers, mint }
 }
 
+describe('registerFilter', () => {
+  it('hides a registered source for one session and restores it on disposal', async () => {
+    const { inputTriggers, mint } = await serviceBench()
+    inputTriggers.registerSource(readySource('/', 'alpha', [{ name: 'one' }]).source)
+    inputTriggers.registerSource(readySource('/', 'beta', [{ name: 'two' }]).source)
+    const a = inputTriggers.sessionOf(mint('a').actx)
+    const b = inputTriggers.sessionOf(mint('b').actx)
+    a.track('/o', 2, { tier: 'plain' }, 1)
+    b.track('/o', 2, { tier: 'plain' }, 1)
+    await tick()
+    expect(a.menu.getSnapshot().groups.map(g => g.source)).toEqual(['alpha', 'beta'])
+
+    const dispose = inputTriggers.registerFilter((session, source) =>
+      !(session.sessionId === sid('a') && source.name === 'beta'))
+    expect(a.menu.getSnapshot().groups.map(g => g.source)).toEqual(['alpha'])
+    expect(b.menu.getSnapshot().groups.map(g => g.source)).toEqual(['alpha', 'beta'])
+
+    dispose()
+    expect(a.menu.getSnapshot().groups.map(g => g.source)).toEqual(['alpha', 'beta'])
+  })
+
+  it('intersects filters and closes a menu whose sources are all hidden', async () => {
+    const { inputTriggers, mint } = await serviceBench()
+    inputTriggers.registerSource(readySource('/', 'alpha', [{ name: 'one' }]).source)
+    const a = inputTriggers.sessionOf(mint('a').actx)
+    const first = vi.fn(() => true)
+    const second = vi.fn(() => false)
+    const disposeFirst = inputTriggers.registerFilter(first)
+    const disposeSecond = inputTriggers.registerFilter(second)
+
+    a.track('/o', 2, { tier: 'plain' }, 1)
+    await tick()
+    expect(a.menu.getSnapshot().open).toBe(false)
+    expect(first).toHaveBeenCalled()
+    expect(second).toHaveBeenCalled()
+
+    disposeSecond()
+    a.track('/o', 2, { tier: 'plain' }, 2)
+    await tick()
+    expect(a.menu.getSnapshot().groups.map(g => g.source)).toEqual(['alpha'])
+    disposeFirst()
+  })
+
+  it('contains a thrown filter without hiding the source', async () => {
+    const { inputTriggers, mint } = await serviceBench()
+    inputTriggers.registerSource(readySource('/', 'alpha', [{ name: 'one' }]).source)
+    const a = inputTriggers.sessionOf(mint('a').actx)
+    const error = vi.spyOn(console, 'error').mockImplementation(() => undefined)
+    inputTriggers.registerFilter(() => { throw new Error('filter failed') })
+
+    a.track('/o', 2, { tier: 'plain' }, 1)
+    await tick()
+    expect(a.menu.getSnapshot().groups.map(g => g.source)).toEqual(['alpha'])
+    expect(error).toHaveBeenCalledWith('[ui-input-trigger] filter failed for "/alpha":', expect.any(Error))
+    error.mockRestore()
+  })
+
+  it('keeps hidden sources out of scope-birth roster reads', async () => {
+    const { inputTriggers, mint } = await serviceBench()
+    const late = deferredSource('/', 'alpha')
+    inputTriggers.registerSource(late.source)
+    inputTriggers.registerFilter((_session, source) => source.name !== 'alpha')
+
+    inputTriggers.sessionOf(mint('a').actx)
+    expect(late.warm).not.toHaveBeenCalled()
+  })
+})
+
 describe('registerSource', () => {
   it('throws on a duplicate (trigger, name); same name across triggers is fine', async () => {
     const { inputTriggers } = await serviceBench()

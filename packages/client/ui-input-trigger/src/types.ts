@@ -241,6 +241,13 @@ export interface InputTriggerSource {
   readonly codec?: ReferenceCodec
 }
 
+/**
+ * Session-scoped visibility rule over registered sources. Every registered
+ * filter must answer true for a source to join that session's roster; a filter
+ * can therefore hide a source another plugin registered.
+ */
+export type InputTriggerFilter = (session: ClientSessionContext, source: InputTriggerSource) => boolean
+
 /** Trigger availability tier, derived from the input phase by the wiring layer. */
 export interface TriggerGuard {
   /** plain: '/' and '@' live; claimed: '/' suppressed, '@' live; frozen: none. */

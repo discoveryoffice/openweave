@@ -11,7 +11,7 @@ import type { Context as ClientContext } from '@deepseek-ai/cordis'
 import type { ISessions, SessionBinding } from '@deepseek-ai/dsh-api-session-controller/client'
 import { WeakMapWithValues } from '@deepseek-ai/dsh-util-values'
 import type {} from '@deepseek-ai/dsh-client-locale/client'
-import type { InputTriggerSource } from '../types.ts'
+import type { ClientSessionContext, InputTriggerFilter, InputTriggerSource } from '../types.ts'
 import { InputTriggerController } from './controller.ts'
 import type { InputTriggerServiceContract } from './contract.ts'
 
@@ -23,6 +23,8 @@ import type { InputTriggerServiceContract } from './contract.ts'
 interface LiveState {
   /** Registration order = menu group order = matchSpace/matchEnter poll order. */
   readonly sources: InputTriggerSource[]
+  /** Session-scoped visibility rules; every answer must be true for a source to join a roster. */
+  readonly filters: InputTriggerFilter[]
   /** Per-session controllers; entries are deleted by their scope disposer. */
   readonly controllers: WeakMapWithValues<SessionBinding, InputTriggerController>
 }
@@ -32,7 +34,7 @@ export class InputTriggerService extends Service implements InputTriggerServiceC
   static inject = ['sessions']
 
   private readonly live: LiveState = {
-    sources: [], controllers: new WeakMapWithValues(),
+    sources: [], filters: [], controllers: new WeakMapWithValues(),
   }
 
   /**
@@ -77,6 +79,47 @@ export class InputTriggerService extends Service implements InputTriggerServiceC
   }
 
   /**
+   * Register a session-scoped visibility rule over all trigger sources. Live
+   * session menus rebuild their groups so a hidden source disappears at once.
+   * @param filter - rule evaluated on every roster read for one session.
+   * @returns disposer (callers wrap registration in ctx.effect).
+   */
+  registerFilter(filter: InputTriggerFilter): () => void {
+    const { live } = this
+    live.filters.push(filter)
+    this.refreshRosters()
+    return () => {
+      const at = live.filters.indexOf(filter)
+      if (at < 0) return
+      live.filters.splice(at, 1)
+      this.refreshRosters()
+    }
+  }
+
+  /** Rebuild every live session's open menu after the visible roster changed. */
+  private refreshRosters(): void {
+    for (const controller of this.live.controllers.values) {
+      try {
+        controller.refreshOpenMenu(true)
+      } catch (error: unknown) {
+        console.error('[ui-input-trigger] filter change menu refresh failed:', error)
+      }
+    }
+  }
+
+  /** Intersect all registered rules; a broken rule is reported and ignored. */
+  private admits(session: ClientSessionContext, source: InputTriggerSource): boolean {
+    return this.live.filters.every((filter) => {
+      try {
+        return filter(session, source)
+      } catch (error: unknown) {
+        console.error(`[ui-input-trigger] filter failed for "${source.trigger}${source.name}":`, error)
+        return true
+      }
+    })
+  }
+
+  /**
    * Resolve the per-session controller for one session scope (lazy; the
    * scope disposer removes and disposes it). Construction warms the source
    * roster once — sessions are always agent-backed, so scope birth is the
@@ -96,12 +139,15 @@ export class InputTriggerService extends Service implements InputTriggerServiceC
     const { live } = this
     const existing = live.controllers.get(binding)
     if (existing !== undefined) return existing
+    const visible = (source: InputTriggerSource): boolean => this.admits({ sessionId: id }, source)
     const controller = new InputTriggerController({
       actx: binding.ctx,
       sessionId: id,
       roster: {
-        sources: trigger => live.sources.filter(s => s.trigger === trigger).sort((a, b) => (a.order ?? 0) - (b.order ?? 0)),
-        all: () => live.sources,
+        sources: trigger => live.sources
+          .filter(s => s.trigger === trigger && visible(s))
+          .sort((a, b) => (a.order ?? 0) - (b.order ?? 0)),
+        all: () => live.sources.filter(visible),
       },
     })
     live.controllers.set(binding, controller)

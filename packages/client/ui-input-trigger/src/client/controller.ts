@@ -454,13 +454,27 @@ export class InputTriggerController {
     this.reduce({ type: 'close' })
   }
 
-  /** Re-fetch the currently open menu without changing its hit or visible rows. */
-  refreshOpenMenu(): void {
+  /**
+   * Re-fetch the currently open menu. A roster change additionally rebuilds
+   * groups and headers so a source hidden by a filter disappears at once.
+   * @param rebuildRoster - whether the visible source set just changed.
+   */
+  refreshOpenMenu(rebuildRoster = false): void {
     if (this.disposed || !this.menu.getSnapshot().open || this.hit === null) return
     const launched = this.launcher.getSnapshot()
     const roster = this.deps.roster.sources(this.hit.trigger)
       .filter(source => launched === null || source.name === launched)
-    if (roster.length === 0) return
+    if (roster.length === 0) {
+      if (rebuildRoster) {
+        this.stopFetch()
+        this.reduce({ type: 'close' })
+      }
+      return
+    }
+    if (rebuildRoster) {
+      this.menu.set(seedGroups(this.menu.getSnapshot(), roster))
+      this.refreshHeaders(this.hit, roster)
+    }
     this.fetchCandidates(this.hit, roster)
   }
 

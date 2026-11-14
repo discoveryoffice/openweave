@@ -73,6 +73,12 @@ export interface CommandDefinition {
    * that payload in the session log.
    */
   readonly recordInput?: boolean
+  /**
+   * Whether the command is offered to the receiving agent. A false answer hides
+   * it from discovery and makes its line an unknown command. Re-register when
+   * the answer changes so clients refresh through `commands/change`.
+   */
+  readonly visible?: (agent: Agent) => boolean
   /** Execute against the receiving agent without sending the command to the model. */
   readonly handler: (invocation: CommandInvocation) => CommandResult | Promise<CommandResult>
 }
@@ -189,6 +195,9 @@ function normalizeDefinition(definition: CommandDefinition): RegisteredCommand {
   if (typeof definition.handler !== 'function') {
     throw new TypeError(`command "${definition.name}" handler must be a function`)
   }
+  if (definition.visible !== undefined && typeof definition.visible !== 'function') {
+    throw new TypeError(`command "${definition.name}" visible predicate must be a function`)
+  }
   const rawInput: unknown = definition.input
   let input: CommandInputDescriptor | undefined
   if (rawInput !== undefined) {
@@ -213,6 +222,7 @@ function normalizeDefinition(definition: CommandDefinition): RegisteredCommand {
     description: definition.description,
     ...input === undefined ? {} : { input },
     ...definition.recordInput === undefined ? {} : { recordInput: definition.recordInput },
+    ...definition.visible === undefined ? {} : { visible: definition.visible },
     handler: definition.handler,
   })
   const descriptor = Object.freeze({
@@ -466,9 +476,25 @@ export class CommandRuntime extends TypertRemoteService {
     return appendLogOnly(type, data)
   }
 
-  /** Resolve global definitions followed by exact scoped shadows. */
+  /** Resolve global definitions followed by exact scoped shadows, then apply per-agent visibility. */
   private view(agent: Agent): Map<string, RegisteredCommand> {
-    return this.layers.merge(agent, layer => layer.commands)
+    const visible = new Map<string, RegisteredCommand>()
+    for (const [name, command] of this.layers.merge(agent, layer => layer.commands)) {
+      if (this.isVisible(agent, command)) visible.set(name, command)
+    }
+    return visible
+  }
+
+  /** Contain a broken predicate so one definition cannot empty the discovery list. */
+  private isVisible(agent: Agent, command: RegisteredCommand): boolean {
+    const predicate = command.definition.visible
+    if (predicate === undefined) return true
+    try {
+      return predicate(agent)
+    } catch (error: unknown) {
+      this.ctx.logger.warn(`command "${command.definition.name}" visibility predicate threw: ${renderThrown(error)}`)
+      return false
+    }
   }
 
   /** Notify every registry observer without making UI refresh load-bearing. */

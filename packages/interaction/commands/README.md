@@ -53,6 +53,12 @@ A command line starts with a slash at byte zero, a lowercase name containing let
 
 A plain registration is global. A command-producing plugin mounted beneath an agent's own context declares its `commands` injection and registers an exact agent-scoped command, which shadows the global definition of the same name for that agent only.
 
+### Per-agent visibility
+
+A definition may carry `visible(agent)`: discovery, lookup, and execution all evaluate it for the receiving agent, and a false answer makes that name unknown. To hide a command another plugin registered globally, register an invisible agent-scoped shadow of the same name; disposing that registration restores the original. The predicate belongs to the definition owner and never reaches a client descriptor.
+
+Re-register when the answer changes: `commands/change` fires on registration and disposal only, so clients otherwise keep a stale command list. A thrown predicate hides that command and logs a warning without hiding the others.
+
 ### Attachments
 
 A command may declare `input.attachments` to accept composer images and generic files. The executor enforces the declaration: attachments sent to a non-declaring command, an absent attachment store, an unknown Session-scoped file-upload receipt, or an over-limit image batch each settle as an error before the handler runs. Images cross the command wire as base64 input; generic files cite receipts from their completed background uploads, so command submission never reads their bytes again. Admitted `ImageBlock`s and `FileBlock`s reach the handler as one frozen `invocation.attachments` array in the user's selection order, and the handler owns their model-visible use.

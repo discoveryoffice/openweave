@@ -108,6 +108,56 @@ describe('CommandRuntime', () => {
     expect((await ctx.commands.execute(agent, '/shared', [], new AbortController().signal))?.result.text).toBe('global')
   })
 
+  it('applies a per-agent visibility predicate to discovery and execution', async () => {
+    const ctx = await mount()
+    const { agent } = await mintAgentScope(ctx, 'hidden')
+    const { agent: other } = await mintAgentScope(ctx, 'shown')
+    const visible = vi.fn((target: Agent) => target.id === other.id)
+    ctx.commands.register({ ...command('guarded'), visible })
+
+    expect(ctx.commands.list(agent).map(item => item.name)).toEqual([])
+    expect(ctx.commands.find(agent, 'guarded')).toBeUndefined()
+    expect(await ctx.commands.execute(agent, '/guarded', [], new AbortController().signal)).toBeUndefined()
+    expect(lifecycleOf(agent)).toEqual([])
+    expect(ctx.commands.list(other).map(item => item.name)).toEqual(['guarded'])
+    expect((await ctx.commands.execute(other, '/guarded', [], new AbortController().signal))?.result.text).toBe('ran:guarded')
+    expect(visible).toHaveBeenCalledWith(agent)
+  })
+
+  it('hides a shipped command through an invisible scoped shadow', async () => {
+    const ctx = await mount()
+    const { scope, agent } = await mintAgentScope(ctx, 'a')
+    const { agent: other } = await mintAgentScope(ctx, 'b')
+    ctx.commands.register(command('goal', 'global'))
+    const dispose = scope.ctx.commands.register({ ...command('goal'), visible: () => false })
+
+    expect(ctx.commands.list(agent).map(item => item.name)).toEqual([])
+    expect(ctx.commands.list(other).map(item => item.name)).toEqual(['goal'])
+    expect(await ctx.commands.execute(agent, '/goal', [], new AbortController().signal)).toBeUndefined()
+
+    dispose()
+    expect(ctx.commands.list(agent).map(item => item.name)).toEqual(['goal'])
+    expect((await ctx.commands.execute(agent, '/goal', [], new AbortController().signal))?.result.text).toBe('global')
+  })
+
+  it('contains a thrown visibility predicate without hiding other commands', async () => {
+    const ctx = await mount()
+    const { agent } = await mintAgentScope(ctx, 'a')
+    const warn = vi.spyOn(ctx.logger, 'warn').mockImplementation(() => undefined)
+    ctx.commands.register(command('healthy'))
+    ctx.commands.register({ ...command('broken'), visible: () => { throw new Error('predicate failed') } })
+
+    expect(ctx.commands.list(agent).map(item => item.name)).toEqual(['healthy'])
+    expect(warn).toHaveBeenCalledWith('command "broken" visibility predicate threw: Error: predicate failed')
+  })
+
+  it('rejects a non-function visibility predicate at registration', async () => {
+    const ctx = await mount()
+    const invalid = command('visible-type')
+    Reflect.set(invalid, 'visible', 'yes')
+    expect(() => ctx.commands.register(invalid)).toThrow('command "visible-type" visible predicate must be a function')
+  })
+
   it('removes a registration when its contributing plugin fiber is disposed', async () => {
     const ctx = await mount()
     const { agent } = await mintAgentScope(ctx, 'a')

@@ -45,7 +45,9 @@ apps/web/dist/
 .orig
 .worktrees/
 worktrees/
-.agents/worktrees/
+# AI assistant knowledge base and IDE-local data; not part of the product.
+.agents/
+.codebuddy/
 .typert-*/
 native/system/test/bin/
 

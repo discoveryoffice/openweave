@@ -69,27 +69,44 @@ A *protocol driver* adapts a wire peer to `ctx.agents`; it may serve a UI or an 
 
 ```ts
 import type { Context } from '@deepseek-ai/cordis'
-import { expandAssistantStream } from '@deepseek-ai/dsh-llm'
+import { brandString } from '@deepseek-ai/dsh-brand'
+import { createUserMessage, expandAssistantStream } from '@deepseek-ai/dsh-llm'
+import type { SessionId } from '@deepseek-ai/dsh-session'
+
+declare function onInboundDelivery(handler: (delivery: { id: string; text: string; verified: boolean }) => void): void
+declare function alreadyDelivered(id: string): boolean
+declare function rememberDelivery(id: string): void
+declare function sendToClient(message: { kind: 'message_chunk'; text: string }): void
 
 export const name = 'my-protocol-bridge'
 export const inject = ['agents', 'sessions', 'sessionPersistence']
 
 export function apply(ctx: Context) {
-  // Publish every committed Assistant text delta to the client.
+  // Publish committed Assistant text; transient stream frames stay local.
   ctx.on('session/event', (_session, event) => {
     if (event.type === 'assistant/message' || event.type === 'assistant/attempt') {
       for (const { chunk } of expandAssistantStream(event.data.stream)) {
-        if (chunk.type === 'text-delta') {
-          // sendToClient({ kind: 'message_chunk', text: chunk.text })
-        }
+        if (chunk.type === 'text-delta') sendToClient({ kind: 'message_chunk', text: chunk.text })
       }
     }
   })
-  // Inbound "prompt": create/resume an agent, feed it, and return its enqueue receipt.
-  // Whole-agent status is a separate notification; no turn end belongs to this prompt.
+  // Inbound: verify, deduplicate, then enqueue. A real driver records the
+  // external origin in the message source, as the webhook README describes.
+  onInboundDelivery(delivery => {
+    if (!delivery.verified || alreadyDelivered(delivery.id)) return
+    ctx.agents.get(brandString<SessionId>('channel-session'))?.followup(createUserMessage({
+      content: [{ type: 'text', text: delivery.text }],
+      source: { kind: 'user' },
+    }))
+    rememberDelivery(delivery.id)
+  })
   // Teardown reaches quiescence via AgentHandle.dispose() (stop + await exit).
 }
 ```
+
+A channel driver owns its own delivery ledger: verify inbound signatures, deduplicate by a stable delivery id, and enqueue through `followup()` with a message source that records the external origin. Publish only committed `session/event` records, never transient `agent/assistant-stream` frames, and never resend a delivery whose send outcome is unknown. Route remote approvals and user questions through `ctx.approval` and the user-question answerer waterfalls instead of private UI. The shipped [webhook runtime](../../packages/experimental/webhook/README.md) is the ingress example; its README owns the delivery guarantees. The [compatibility register](../third-party-plugin-compatibility.md) tracks the extension points such drivers still need.
+
+A plugin contributes browser UI through `ctx.slots.register()` and the Public atom exports of [ui-primitives](../../packages/client/ui-primitives/README.md). Component styles are CSS Modules with hashed class names, and [dockkit](../../packages/client/ui-dockkit/README.md) publishes no stylesheet contract. Never select or override another feature's DOM nodes or hashed class names; [web styling](../web-styling.md) owns the component styling rules.
 
 ## Runnable wirings
 

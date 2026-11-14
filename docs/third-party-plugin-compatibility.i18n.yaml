@@ -1,0 +1,28 @@
+# Bilingual-pair consistency record for third-party-plugin-compatibility.md (docs/i18n/README.md): per heading
+# section, a hash of its English and Chinese blocks outside code blocks and generated regions.
+# After editing either side, bring the other along and re-record with:
+#   pnpm run verify-translation-pairing --write docs/third-party-plugin-compatibility.md
+/third-party-plugin-compatibility-register:
+  en: f7ce84d656a2151a
+  zh: 9db278549136a1e6
+/third-party-plugin-compatibility-register/summary:
+  en: 43be19ac646f4eb0
+  zh: 6437c3b6b22ff783
+/third-party-plugin-compatibility-register/table-of-contents:
+  en: 78ea9520dd67c750
+  zh: 4ed7faee45691a98
+/third-party-plugin-compatibility-register/status-vocabulary:
+  en: e8888f3174c1e2e1
+  zh: 7f529866bfb50cdf
+/third-party-plugin-compatibility-register/register:
+  en: 6199b20671223926
+  zh: a849e12dfb90a8d7
+/third-party-plugin-compatibility-register/keeping-the-extension-points-stable:
+  en: 4ead27a85855d683
+  zh: 3d222e5df1829134
+/third-party-plugin-compatibility-register/updating-the-register:
+  en: dda965e372c2d25b
+  zh: 11dc47736d1894dd
+/third-party-plugin-compatibility-register/dev-note:
+  en: b75c8458928b72b9
+  zh: 003ba4e17b4b5269

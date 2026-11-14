@@ -71,27 +71,44 @@ export function apply(ctx: Context) {
 
 ```ts
 import type { Context } from '@deepseek-ai/cordis'
-import { expandAssistantStream } from '@deepseek-ai/dsh-llm'
+import { brandString } from '@deepseek-ai/dsh-brand'
+import { createUserMessage, expandAssistantStream } from '@deepseek-ai/dsh-llm'
+import type { SessionId } from '@deepseek-ai/dsh-session'
+
+declare function onInboundDelivery(handler: (delivery: { id: string; text: string; verified: boolean }) => void): void
+declare function alreadyDelivered(id: string): boolean
+declare function rememberDelivery(id: string): void
+declare function sendToClient(message: { kind: 'message_chunk'; text: string }): void
 
 export const name = 'my-protocol-bridge'
 export const inject = ['agents', 'sessions', 'sessionPersistence']
 
 export function apply(ctx: Context) {
-  // Publish every committed Assistant text delta to the client.
+  // Publish committed Assistant text; transient stream frames stay local.
   ctx.on('session/event', (_session, event) => {
     if (event.type === 'assistant/message' || event.type === 'assistant/attempt') {
       for (const { chunk } of expandAssistantStream(event.data.stream)) {
-        if (chunk.type === 'text-delta') {
-          // sendToClient({ kind: 'message_chunk', text: chunk.text })
-        }
+        if (chunk.type === 'text-delta') sendToClient({ kind: 'message_chunk', text: chunk.text })
       }
     }
   })
-  // Inbound "prompt": create/resume an agent, feed it, and return its enqueue receipt.
-  // Whole-agent status is a separate notification; no turn end belongs to this prompt.
+  // Inbound: verify, deduplicate, then enqueue. A real driver records the
+  // external origin in the message source, as the webhook README describes.
+  onInboundDelivery(delivery => {
+    if (!delivery.verified || alreadyDelivered(delivery.id)) return
+    ctx.agents.get(brandString<SessionId>('channel-session'))?.followup(createUserMessage({
+      content: [{ type: 'text', text: delivery.text }],
+      source: { kind: 'user' },
+    }))
+    rememberDelivery(delivery.id)
+  })
   // Teardown reaches quiescence via AgentHandle.dispose() (stop + await exit).
 }
 ```
+
+通道驱动自己维护投递记录：验签入站投递、按稳定的投递 id 去重，并通过 `followup()` 入队，消息 source 要记录外部来源。只发布已提交的 `session/event` record，不发布瞬态 `agent/assistant-stream` frame；发送结果未知的投递绝不重发。远程审批与用户问题走 `ctx.approval` 与用户问题 answerer waterfall，不要做私有 UI。交付的 [webhook runtime](../../packages/experimental/webhook/README.zh.md) 是入站示例；其 README 拥有投递保证的约定。[兼容性台账](../third-party-plugin-compatibility.zh.md)记录这类驱动仍需要的扩展点。
+
+插件通过 `ctx.slots.register()` 和 [ui-primitives](../../packages/client/ui-primitives/README.zh.md) 的 Public atom exports 贡献浏览器 UI。组件样式是 CSS Modules，类名经过哈希；[dockkit](../../packages/client/ui-dockkit/README.zh.md) 不发布 stylesheet 契约。不要选中或覆盖其他 feature 的 DOM 节点或哈希类名；组件样式规则由 [web styling](../web-styling.zh.md) 拥有。
 
 ## 可运行的组装示例
 

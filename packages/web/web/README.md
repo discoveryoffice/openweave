@@ -81,6 +81,17 @@ The shipped `deepseek-official` and `deepseek-search-api` search ids select lega
 
 A provider's availability is a cheap local check — for example whether its API key is present — and never makes network calls, so selection stays fast and deterministic.
 
+Selection is deliberately order-independent: an unregistered configured id fails with `WEB_PROVIDER_CONFIGURED_MISSING`, and several usable providers with no configured id fail with `WEB_PROVIDER_AMBIGUOUS`. Keep a provider's registration and its pinned id in one profile patch. `!!js` expressions under an entry's `disabled` field and a `config` value can read the same condition, so disabling the provider that owned the previous selection also repoints the id:
+
+```yaml
+# Replace <provider-plugin-id> with the id of the provider plugin you disable.
+- id: <provider-plugin-id>
+  disabled: !!js process.env.DSH_WEB_SEARCH_PROVIDER !== undefined
+- id: web
+  config:
+    searchProvider: !!js process.env.DSH_WEB_SEARCH_PROVIDER ?? 'deepseek-official'
+```
+
 <a id="listing-providers"></a>
 ### Listing providers
 

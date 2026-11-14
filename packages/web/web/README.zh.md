@@ -81,6 +81,17 @@ const page = await ctx.web.fetch({ url: 'https://example.com' })
 
 提供方的可用性是一项廉价的局部检查——例如其 API 密钥是否存在——并且从不发起网络调用，因此选择保持快速且确定。
 
+选择刻意不依赖顺序：配置的 id 未注册会以 `WEB_PROVIDER_CONFIGURED_MISSING` 失败，未配置 id 而有多个可用提供方会以 `WEB_PROVIDER_AMBIGUOUS` 失败。把提供方的注册与固定它的 id 放在同一个 profile patch 里。entry 的 `disabled` 字段与 `config` 值上的 `!!js` 表达式可以读取同一个条件，因此禁用此前承担选择的提供方时，也能同步改掉固定的 id：
+
+```yaml
+# Replace <provider-plugin-id> with the id of the provider plugin you disable.
+- id: <provider-plugin-id>
+  disabled: !!js process.env.DSH_WEB_SEARCH_PROVIDER !== undefined
+- id: web
+  config:
+    searchProvider: !!js process.env.DSH_WEB_SEARCH_PROVIDER ?? 'deepseek-official'
+```
+
 <a id="listing-providers"></a>
 ### 列出提供方
 

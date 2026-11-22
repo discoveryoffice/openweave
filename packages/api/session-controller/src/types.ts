@@ -274,6 +274,13 @@ export interface SessionCreateRequest {
   readonly sessionId?: SessionId
   /** Preset the Session runs, replacing a reused Session's recorded preset; the configured default when omitted. */
   readonly agentPreset?: string
+  /**
+   * Model this Session starts on, recorded as its own selection. Omitted sessions
+   * follow the live Agent default. A selection given here is local to the new
+   * Session and never rewrites the shared default, so several Sessions can each
+   * keep a different model.
+   */
+  readonly model?: ModelSelection
 }
 
 /** Session creation response value. */
@@ -287,6 +294,11 @@ export interface SessionCreateValue {
 /** Session model-selection request. */
 export interface SessionSelectModelRequest extends ModelSelection {
   readonly sessionId: SessionId
+  /**
+   * Keep the choice local to this Session. When true the shared default is not
+   * rewritten, so other Sessions keep their own selection. Defaults to false.
+   */
+  readonly sessionOnly?: boolean
 }
 
 /** Accepted model selection after Host resolution. */

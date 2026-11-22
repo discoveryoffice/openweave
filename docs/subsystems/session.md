@@ -182,7 +182,7 @@ interface SessionEventMap {
 
 ### The request header event: `request/header`
 
-The request envelope — the `EpochHeader` (call config + markers for adapter-supplied defaults + assembled tool schemas) — is logged session state, so every conversation request is a pure function of the log (the reconstructability Agent Note). The rendered system prompt is not part of the header: it is derived history, the `system/message` event at surface node 0 and any later in-history system node ([decision](../../.agents/notes/implemented/architecture/2026-09-02-system-prompt-as-surface-node.md)), so a prompt change replaces or appends a system node and leaves the header unchanged. A full `request/header` snapshot with reason `'initial'` or `'resume'` records each loop-instance boundary; a changed request appends a snapshot with reason `'change'`; and an unchanged envelope beginning an explicitly declared message series or following a surface replacement appends a snapshot with reason `'series'`. An `'initial'`, `'resume'`, or `'change'` snapshot carries `startsSeries: true` when that request also begins a series; reason `'series'` already records that fact. Ordinary append-only later Turns, further Steps, and retries in the same model-message series inherit the latest snapshot. `foldRequestHeader(events)` reconstructs the header by selecting the latest snapshot. The event is not a `SurfaceEventType`: it produces no LLM message.
+The request envelope — the `EpochHeader` (call config + markers for adapter-supplied defaults + assembled tool schemas) — is logged session state, so every conversation request is a pure function of the log (the reconstructability Agent Note). The rendered system prompt is not part of the header: it is derived history, the `system/message` event at surface node 0 and any later in-history system node (the system-prompt-as-surface-node decision), so a prompt change replaces or appends a system node and leaves the header unchanged. A full `request/header` snapshot with reason `'initial'` or `'resume'` records each loop-instance boundary; a changed request appends a snapshot with reason `'change'`; and an unchanged envelope beginning an explicitly declared message series or following a surface replacement appends a snapshot with reason `'series'`. An `'initial'`, `'resume'`, or `'change'` snapshot carries `startsSeries: true` when that request also begins a series; reason `'series'` already records that fact. Ordinary append-only later Turns, further Steps, and retries in the same model-message series inherit the latest snapshot. `foldRequestHeader(events)` reconstructs the header by selecting the latest snapshot. The event is not a `SurfaceEventType`: it produces no LLM message.
 
 ```ts type-equiv
 /**
@@ -205,7 +205,7 @@ interface EpochHeader {
 }
 ```
 
-Current event acceptance requires canonical `request/header.header`: any `system` field is forbidden, and `tools: []` and `adapterDefaults: {}` must be omitted. Whitespace-only system-message content, `config.stop: []`, and nested extensions remain unchanged. Seed, append, and current persistence reads reject noncanonical headers rather than silently normalizing them; [the V3 envelope decision](../../.agents/notes/implemented/architecture/2026-09-06-v3-canonical-session-envelopes.md) owns historical conversion. Legacy v0 logs containing `request/header-delta` or its full-snapshot `fallback` reason are rejected rather than replayed incompletely.
+Current event acceptance requires canonical `request/header.header`: any `system` field is forbidden, and `tools: []` and `adapterDefaults: {}` must be omitted. Whitespace-only system-message content, `config.stop: []`, and nested extensions remain unchanged. Seed, append, and current persistence reads reject noncanonical headers rather than silently normalizing them; the V3 canonical-envelope decision owns historical conversion. Legacy v0 logs containing `request/header-delta` or its full-snapshot `fallback` reason are rejected rather than replayed incompletely.
 
 ### The route capacity event: `request/context`
 
@@ -297,7 +297,7 @@ Every surface event requires `surfaceOp`; known log-only events forbid both surf
 
 ## Surface types
 
-The message-producing types (`SurfaceEventType` — `system/message`, `developer/message`, `user/message`, `assistant/message`, `tool/result`) carry surface metadata declaring how they join the ordered derived surface. `system/message` holds the rendered system prompt: the loop appends the first one as surface node 0 and, when the prompt changes, replaces exactly the latest system node or appends a new one on an in-history route; the surface fold rejects any other replacement covering a `system/message` at node 0, while a later system node is ordinary history that a compaction replacement may shadow. See the [session surface Agent Note](../../.agents/notes/implemented/architecture/2026-06-18-session-surface.md).
+The message-producing types (`SurfaceEventType` — `system/message`, `developer/message`, `user/message`, `assistant/message`, `tool/result`) carry surface metadata declaring how they join the ordered derived surface. `system/message` holds the rendered system prompt: the loop appends the first one as surface node 0 and, when the prompt changes, replaces exactly the latest system node or appends a new one on an in-history route; the surface fold rejects any other replacement covering a `system/message` at node 0, while a later system node is ordinary history that a compaction replacement may shadow. See the session-surface decision recorded in the architecture notes.
 
 ### `SurfaceEventType` — the message-producing subset of event types
 
@@ -740,7 +740,7 @@ interface TurnEndReasonMap {
 
 A turn encloses one model-loop execution, not the whole session log. AgentLoop records injected `user/message` events only from entering pre-step batches inside a turn; plugin-owned log-only events may still appear between `turn/end` and the next `turn/start`, consuming event seqs without incrementing turn numbers. Persistence admits every contiguous accepted event into a bounded durable batch, while crash repair closes only a genuinely open trailing turn. A producer that needs an immediate durability barrier explicitly awaits `ctx.sessions.flush(session)`.
 
-Merge-extensible event relations belong to the plugin that declares them, so core does not reject an unknown event merely because no turn is open. See [the standalone-event decision](../../.agents/notes/implemented/simplification/2026-07-28-remove-synthetic-log-only-turns.md).
+Merge-extensible event relations belong to the plugin that declares them, so core does not reject an unknown event merely because no turn is open. See the standalone-event decision recorded in the simplification notes.
 
 ## The end-seed boundary: `session/end-seed`
 
@@ -813,6 +813,8 @@ The backends that consume this contract are on [persistence.md](persistence.md).
 
 `ModelCatalog` is the Host-generation model directory returned by `session/modelCatalog`: it carries the deployment default, routable provider ids, successful provider groups, and isolated provider failures. It is not derived from one Session and remains separate from Session projections.
 
+Each Session owns its model selection through the `modelSelection` projection: an Agent reads `agent.model.current()` before every step, so Sessions sharing one deployment default can run on different models without affecting one another. `session.create` accepts an optional `model` (provider, model, optional reasoning effort) that is validated against the catalog and recorded only in the new Session's log — it never rewrites the shared default. `session.selectModel` switches a resumed Session and, by default, also saves that choice as the shared default for future Sessions; pass `sessionOnly: true` to keep a switch local to that Session. Both paths fail loud with `session/model-unavailable` for an unroutable selection, keeping the model that was already recorded for the Session.
+
 `SessionOpenWorkspacePathRequest` carries an absolute or workspace-resolved `path`; optional `action: "reveal"` selects file-manager navigation instead of default-application opening. `SessionOpenWorkspacePathValue` confirms that the Host accepted the native handoff. A Session-aware Client resolves relative paths against its current Session cwd when known; the controller hands the path to the opener unchanged and reports invalid requests, cancellation, and opener failures through the Session Remote error vocabulary.
 
 The optional `application` selects a registered file handler without changing the system default; `workspacePathApplications({ path })` returns current handlers, names, icons, and default selection after Host path verification.
@@ -882,14 +884,15 @@ resolveAgent(sessionId: SessionId): Promise<ApiSessionAgentResult>
 
 /**
  * Create one ordinary Session for a new conversation, reusing the named blank Session while it is reusable.
- * @param request - optional blank Session to reuse, location, and Agent preset.
+ * @param request - optional blank Session to reuse, location, Agent preset, and an optional Session-local model.
  * @returns the created or reused Session identity and its preset when configured.
  */
 @Remote('create') create(request: SessionCreateRequest): Promise<SessionCreateValue>
 
 /**
- * Select one Session-local model after explicitly resuming the Session; save the default in the background.
- * @param request - Session identity and requested model selection.
+ * Select one Session-local model after explicitly resuming the Session. By default the
+ * choice is also saved as the shared default; pass `sessionOnly` to keep it local.
+ * @param request - Session identity, requested model selection, and optional session-only flag.
  * @returns the normalized selection installed for the Session, without waiting for default persistence.
  */
 @Remote('selectModel') selectModel(request: SessionSelectModelRequest): Promise<SessionSelectModelValue>

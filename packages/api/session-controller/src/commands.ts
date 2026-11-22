@@ -44,6 +44,7 @@ import type {
   SessionCreateValue,
   SessionForkRequest,
   SessionForkValue,
+  ModelSelection,
   SessionPromptRequest,
   SessionPromptValue,
   SessionRenameRequest,
@@ -155,7 +156,44 @@ export class SessionCommandController {
         )
       }
     }
+    // A per-Session model starts this agent on its own selection. It is recorded
+    // only in this Session and never becomes the shared default.
+    if (request.model !== undefined) {
+      await this.applyLocalSelection(created.agent, request.model)
+    }
     return { sessionId, ...(created.agentPreset === undefined ? {} : { agentPreset: created.agentPreset }) }
+  }
+
+  /**
+   * Validate a selection and record it on one Agent without touching the shared
+   * default. Shared by per-Session creation and session-only switches.
+   * @param agent - receiving Agent whose Session owns the selection.
+   * @param selection - requested provider, model, and optional effort.
+   * @returns the normalized selection recorded for the Session.
+   */
+  private async applyLocalSelection(agent: Agent, selection: ModelSelection): Promise<AgentModelSelection> {
+    return await this.agents.serializeImageAdmission(agent, async () => {
+      try {
+        await this.requireModel(selection)
+        const selected: AgentModelSelection = {
+          provider: selection.provider,
+          model: selection.model,
+          ...(selection.reasoningEffort === undefined
+            ? {}
+            : { reasoningEffort: ReasoningEffortId(selection.reasoningEffort) }),
+        }
+        await this.ctx.llm.resolveCallConfig(selected)
+        agent.model.select(selected)
+        return selected
+      } catch (error) {
+        if (remoteErrorOf(error) !== undefined) throw error
+        throw new RemoteError(
+          'session/model-unavailable',
+          error instanceof Error ? error.message : String(error),
+          { provider: selection.provider, model: selection.model },
+        )
+      }
+    })
   }
 
   /**
@@ -165,33 +203,15 @@ export class SessionCommandController {
    */
   async selectModel(request: SessionSelectModelRequest): Promise<SessionSelectModelValue> {
     const agent = await this.resolveAgent(request.sessionId)
-    return this.agents.serializeImageAdmission(agent, async () => {
-      try {
-        await this.requireModel(request)
-        const selected: AgentModelSelection = {
-          provider: request.provider,
-          model: request.model,
-          ...(request.reasoningEffort === undefined
-            ? {}
-            : { reasoningEffort: ReasoningEffortId(request.reasoningEffort) }),
-        }
-        await this.ctx.llm.resolveCallConfig(selected)
-        agent.model.select(selected)
-        void this.ctx.agentDefaultModel.saveSelection(selected).catch((error: unknown) => {
-          this.ctx.logger.warn(
-            `session-controller: model selection changed for the Session but the default was not saved: ${String(error)}`,
-          )
-        })
-        return { selected: { ...selected } }
-      } catch (error) {
-        if (remoteErrorOf(error) !== undefined) throw error
-        throw new RemoteError(
-          'session/model-unavailable',
-          error instanceof Error ? error.message : String(error),
-          { provider: request.provider, model: request.model },
+    const selected = await this.applyLocalSelection(agent, request)
+    if (!request.sessionOnly) {
+      void this.ctx.agentDefaultModel.saveSelection(selected).catch((error: unknown) => {
+        this.ctx.logger.warn(
+          `session-controller: model selection changed for the Session but the default was not saved: ${String(error)}`,
         )
-      }
-    })
+      })
+    }
+    return { selected: { ...selected } }
   }
 
   /**

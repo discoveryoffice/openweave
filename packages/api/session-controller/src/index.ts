@@ -300,7 +300,7 @@ export class SessionController extends TypertRemoteService {
 
   /**
    * Create one ordinary Session for a new conversation, reusing the named blank Session while it is reusable.
-   * @param request - optional blank Session to reuse, location, and Agent preset.
+   * @param request - optional blank Session to reuse, location, Agent preset, and an optional Session-local model.
    * @returns the created or reused Session identity and its preset when configured.
    */
   @Remote('create')
@@ -309,8 +309,9 @@ export class SessionController extends TypertRemoteService {
   }
 
   /**
-   * Select one Session-local model after explicitly resuming the Session; save the default in the background.
-   * @param request - Session identity and requested model selection.
+   * Select one Session-local model after explicitly resuming the Session. By default the
+   * choice is also saved as the shared default; pass `sessionOnly` to keep it local.
+   * @param request - Session identity, requested model selection, and optional session-only flag.
    * @returns the normalized selection installed for the Session, without waiting for default persistence.
    */
   @Remote('selectModel')

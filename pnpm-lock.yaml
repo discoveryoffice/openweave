@@ -13681,6 +13681,8 @@ importers:
         specifier: workspace:*
         version: link:../../core/tools
 
+  packages/memory/memory-core: {}
+
   packages/plan/plan-mode:
     dependencies:
       '@deepseek-ai/dsh-brand':

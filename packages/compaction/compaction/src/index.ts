@@ -22,6 +22,13 @@ export type {
   StewardAction, StewardConfig, StewardDecision, StewardDecisionInput,
   StewardModelWindow, StewardPhase, StewardThresholds,
 } from './steward.ts'
+export {
+  botId, buildHandoff, nextSegment, renderCheckpoint, segmentIndex,
+} from './segments.ts'
+export type {
+  BotId, CheckpointInput, HandoffInput, HandoffPackage, SegmentEndReason,
+  SegmentIdentity, SegmentIndex, VerbatimQuote,
+} from './segments.ts'
 export { CompactionId } from './brand.ts'
 export { toolPairingBalancedAfter, toolPairingBalancedBefore } from './tool-pairing.ts'
 // The checkpoint source constructor and predicate are declared on the cordis-free

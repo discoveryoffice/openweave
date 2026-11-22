@@ -44,6 +44,9 @@
 /deepseek-ai-dsh-compaction/understand-the-implementation/context-steward-decision-model:
   en: 5b230c14fd3b9339
   zh: 364dd59c3f59d59b
+/deepseek-ai-dsh-compaction/understand-the-implementation/long-lived-segment-model:
+  en: 74d0c61c317d7d19
+  zh: 7097bb7a88dd9540
 /deepseek-ai-dsh-compaction/understand-the-implementation/manual-failure-taxonomy:
   en: 81449c88ba52f445
   zh: 2cdcce236bfbf284

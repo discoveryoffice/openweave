@@ -30,6 +30,10 @@
       "types": "./lib/types/steward.d.ts",
       "default": "./lib/types/steward.js"
     },
+    "./segments": {
+      "types": "./lib/types/segments.d.ts",
+      "default": "./lib/types/segments.js"
+    },
     "./src/*": "./src/*",
     "./package.json": "./package.json"
   },

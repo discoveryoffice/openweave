@@ -79,6 +79,10 @@ The contract is three abstract operations a backend implements: `compactIfNeeded
 
 A backend that summarizes through `ctx.llm.stream()` must forward the abort signal into the call's `GenerateOptions.signal`, so an abort or fiber dispose tears down the in-flight summarization. Automatic and explicit-region brackets recover their numeric owner from the open turn; manual brackets require no open turn and stamp `turn: null`.
 
+### Context steward decision model
+
+For a long-lived conversation that outlives one model window, `src/steward.ts` provides the cordis-free decision model shared by Host policy and tests. It derives model-relative lines — window `W` (default 500000 when undeclared), usable `U = W − maxTokens` floored at `W/2`, hard line `H = 0.95·U`, and check line `C = checkRatio·U` capped at `H` — so no token count is hard-coded. `shouldCheckSteward` arms a turn-end check at `C` and the mid-turn fallback only at `H`; `stewardCheckRearmed` requires pressure to rise a quarter of `U` before checking again. `parseStewardAnswer` reads the steward's one-line JSON and `decideStewardAction` maps it to `compact` or `switch`: provider overflow or a missing/malformed answer switches (fail loud), a compact at the hard line mid-turn is honored, and a compact after two or more checkpoints is upgraded to a handoff because a further summary would lose more than it saves. The engine only decides; mounting it, issuing the one-off model call, and executing compact or a fresh segment belong to a Host-side steward driver.
+
 ### Manual failure taxonomy
 
 The synchronous `compaction/summary-error` waterfall lets a backend request durable input recovery for a failed summary and an explicit selection. A listener returns true only after recording progress, or calls `next()` to delegate. The backend checks cancellation and selection stability before dispatch, then re-derives and re-prices input before retrying. The event declaration documents its payload; image policy belongs to `dsh-compaction-image-offload`.

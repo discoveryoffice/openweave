@@ -79,6 +79,10 @@ kind: "package-reference"
 
 通过 `ctx.llm.stream()` 摘要的后端必须将 signal 转发到调用的 `GenerateOptions.signal`，因此 abort 或 fiber dispose（资源释放）会停止进行中的摘要。自动和显式范围标记对会从打开的轮次恢复其数字形式归属；手动标记对不要求存在打开的轮次，并标记 `turn: null`。
 
+### 上下文管家决策模型
+
+对话跨度超过单个模型窗口时，`src/steward.ts` 提供 Host 策略与测试共用的、与 cordis 无关的决策模型。它派生随模型变化的线：窗口 `W`（未声明时默认 500000）、可用 `U = W − maxTokens`（下限 `W/2`）、硬线 `H = 0.95·U`、检查线 `C = checkRatio·U`（上限为 `H`）——不写死任何 token 数。`shouldCheckSteward` 在回合结束于 `C` 处武装检查，回合中途仅在 `H` 处触发兜底检查；`stewardCheckRearmed` 要求压力再升 `U` 的四分之一才重新检查。`parseStewardAnswer` 解析管家的一行 JSON，`decideStewardAction` 把它映射为 `compact` 或 `switch`：提供方溢出或缺失/无法解析的回答一律换段（fail loud），硬线处的中途压缩予以采纳，两次以上检查点之后的压缩升级为交接，因为再一次摘要的损失大于收益。该引擎只做决策；挂载、发起一次性模型调用、执行压缩或开启新段属于 Host 侧的管家驱动。
+
 ### 手动失败分类
 
 同步的 `compaction/summary-error` waterfall 让后端为失败的摘要及明确选区请求持久输入恢复。监听器只有在记录实际进展后才返回 true，否则调用 `next()` 委派后续处理。后端在触发事件前检查取消和选区稳定性，重试前重新派生输入并计价。事件声明说明其载荷；图片策略由 `dsh-compaction-image-offload` 负责。

@@ -14,6 +14,14 @@ import type { CompactionResult } from './types.ts'
 import type { CompactionCheckpointSource } from './checkpoint.ts'
 
 export type { CompactionResult } from './types.ts'
+export {
+  DEFAULT_CHECK_RATIO, DEFAULT_CONTEXT_WINDOW, HARD_LINE_RATIO, CHECK_HYSTERESIS_RATIO,
+  decideStewardAction, parseStewardAnswer, shouldCheckSteward, stewardCheckRearmed, stewardThresholds,
+} from './steward.ts'
+export type {
+  StewardAction, StewardConfig, StewardDecision, StewardDecisionInput,
+  StewardModelWindow, StewardPhase, StewardThresholds,
+} from './steward.ts'
 export { CompactionId } from './brand.ts'
 export { toolPairingBalancedAfter, toolPairingBalancedBefore } from './tool-pairing.ts'
 // The checkpoint source constructor and predicate are declared on the cordis-free
